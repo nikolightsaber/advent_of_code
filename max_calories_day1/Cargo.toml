@@ -1,5 +1,5 @@
 [package]
-name = "advent_max_calo_day1"
+name = "max_calories_day1"
 version = "0.1.0"
 edition = "2021"
 
