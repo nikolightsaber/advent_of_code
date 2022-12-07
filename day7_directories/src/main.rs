@@ -33,12 +33,7 @@ impl Directory {
             return Some(self);
         }
 
-        for dir in self.dirs.iter_mut() {
-            if dir.name == name {
-                return Some(dir);
-            }
-        }
-        None
+        self.dirs.iter_mut().find(|dir| dir.name == name)
     }
 
     fn mkdir(&mut self, dir: Directory) {
@@ -53,6 +48,7 @@ impl Directory {
 fn main() -> Result<(), Box<dyn Error>> {
     let mut root = Directory::new(String::from("/"));
     let mut cwd = &mut root;
+    let mut last_dir: Option<&mut Directory> = None;
     let input = include_str!("../inp_test.txt");
 
     for line in input.lines() {
@@ -66,11 +62,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                         if dir.len() == 0 {
                             panic!("Invalid input");
                         }
+
                         if dir == ".." {
                             break;
-                            todo!("move up ??")
+                            cwd = last_dir.take().expect("Invalid input");
                         }
+
                         cwd = cwd.cd(dir).unwrap();
+                        // (cwd, last_dir) = match cwd.cd(dir) {
+                        //     (Some(c_dir), l_dir) => (c_dir, l_dir),
+                        //     _ => panic!("Invalid input"),
+                        // };
                     }
                     None if right == "ls" => (), // Do nothing wait for next lines
                     _ => panic!("Invalid input"),
