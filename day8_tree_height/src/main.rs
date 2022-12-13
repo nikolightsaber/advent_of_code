@@ -1,66 +1,56 @@
-use std::error::Error;
-
-fn adapt_forw(info: &mut (u8, usize), val: u8, already_added: bool) -> bool {
-    if info.0 < val {
-        info.0 = val;
-        if !already_added {
-            info.1 += 1;
-            return true;
-        }
-    }
-    return false;
-}
-
-fn adapt_backw(info: &mut (u8, usize), val: u8, already_added: bool) -> bool {
-    if info.0 < val {
-        info.0 = val;
-        info.1 = 0;
-    }
-    if !already_added {
-        info.1 += 1;
-        return true;
-    }
-
-    return false;
-}
+use std::{collections::HashMap, error::Error};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let input = include_str!("../inp_test.txt");
+    let input = include_str!("../inp_off.txt");
 
-    let values: Vec<Vec<u8>> = input
+    let values = input
         .lines()
-        .map(|line| {
-            line.as_bytes()
-                .into_iter()
-                .map(|v| v - b'0')
-                .collect::<Vec<u8>>()
-        })
-        .collect();
+        .map(|line| line.as_bytes().into_iter().map(|v| v - b'0'));
 
-    let mut top: Vec<(u8, usize)> = vec![(0, 0); values[0].len()];
-    let mut bot: Vec<(u8, usize)> = vec![(0, 0); values[0].len()];
-    let mut count = 0;
+    let size = values.clone().count();
 
-    for line in values {
-        let mut left: (u8, usize) = (0, 0);
-        let mut right: (u8, usize) = (0, 0);
-        dbg!(&line);
-        for (i, v) in line.iter().enumerate() {
-            let added = adapt_forw(&mut left, *v, false);
-            let added = adapt_forw(&mut top[i], *v, added);
-            let added = adapt_backw(&mut right, *v, added);
-            adapt_backw(&mut bot[i], *v, added);
-        }
-        dbg!(left, right);
-        count += left.1;
-        count += right.1;
-    }
+    let mut col_max: Vec<i16> = vec![-1i16; size];
+    let hash = values.clone().enumerate().fold(
+        HashMap::<(usize, usize), u8>::new(),
+        |mut hash, (row_i, row)| {
+            let mut row_max = -1i16;
+            for (col_i, val) in row.enumerate() {
+                if (val as i16) > row_max {
+                    row_max = val as i16;
+                    hash.entry((row_i, col_i)).or_insert(val);
+                }
 
-    dbg!(&top, &bot);
-    count = top.iter().fold(count, |count, v| count + v.1);
-    count = bot.iter().fold(count, |count, v| count + v.1);
+                if (val as i16) > col_max[col_i] {
+                    col_max[col_i] = val as i16;
+                    hash.entry((row_i, col_i)).or_insert(val);
+                }
+            }
+            hash
+        },
+    );
 
-    println!("ex 1 {}", count);
+    let mut col_max: Vec<i16> = vec![-1i16; size];
+    let hash = values
+        .clone()
+        .rev()
+        .enumerate()
+        .fold(hash, |mut hash, (mut row_i, row)| {
+            row_i = size - row_i - 1;
+            let mut row_max = -1i16;
+            for (col_i, val) in row.enumerate().rev() {
+                if (val as i16) > row_max {
+                    row_max = val as i16;
+                    hash.entry((row_i, col_i)).or_insert(val);
+                }
+
+                if (val as i16) > col_max[col_i] {
+                    col_max[col_i] = val as i16;
+                    hash.entry((row_i, col_i)).or_insert(val);
+                }
+            }
+            hash
+        });
+    println!("ex 1 {:?}", hash.len());
 
     Ok(())
 }
