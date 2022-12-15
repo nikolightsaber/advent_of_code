@@ -2,7 +2,7 @@ use std::clone;
 use std::collections::HashSet;
 use std::error::Error;
 use std::hash::Hash;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Sub, SubAssign};
 
 /// Part 2 implementation extends part1
 /// Part one would benefit form this
@@ -49,6 +49,14 @@ impl<'a, 'b> Sub<&'b Position> for &'a Position {
     }
 }
 
+impl Div<i32> for Position {
+    type Output = Position;
+
+    fn div(self, rhs: i32) -> Self::Output {
+        Position(self.0 / rhs, self.1 / rhs)
+    }
+}
+
 impl PartialEq for Position {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
@@ -73,10 +81,15 @@ impl Default for Position {
 }
 
 impl Position {
+    fn abs(&self) -> Position {
+        Position(self.0.abs(), self.1.abs())
+    }
+
     fn follow(&mut self, other: Self) -> Option<Position> {
         let diff = other - self;
 
         let operation = match diff {
+            a if a.abs() == Position(2, 2) => Some(a / 2),
             Position(2, a) => Some(Position(1, a)),
             Position(-2, a) => Some(Position(-1, a)),
             Position(a, 2) => Some(Position(a, 1)),
@@ -111,7 +124,7 @@ pub fn solve(input: &'static str) -> Result<usize, Box<dyn Error>> {
         .map(|line| line.split_once(" ").expect("Space present"))
         .map(|(dir, count)| (dir, count.parse::<usize>().expect("count as input")));
 
-    let mut snake = [Position::default(); 9];
+    let mut snake = [Position::default(); 10];
     let mut pos: HashSet<Position> = HashSet::new();
     pos.insert(Position::default());
     // Uncomment this and remove Copy trait to see where copy happens
@@ -128,13 +141,13 @@ pub fn solve(input: &'static str) -> Result<usize, Box<dyn Error>> {
             {
                 pos.insert(snake[snake.len() - 1].clone());
             }
-            println!("{:?}", snake);
-            println!(
+            // println!("{:?}", snake);
+            /* println!(
                 "move {}, head: {:?}, tail {:?}",
                 cmd.0,
                 snake[snake.len() - 2],
                 snake[snake.len() - 1]
-            );
+            ); */
         }
     }
     // dbg!(&pos);
