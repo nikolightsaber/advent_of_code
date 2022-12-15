@@ -1,3 +1,4 @@
+use std::clone;
 use std::collections::HashSet;
 use std::error::Error;
 use std::hash::Hash;
@@ -29,6 +30,14 @@ impl Add for Position {
 
     fn add(self, rhs: Position) -> Self::Output {
         return Position(self.0 + rhs.0, self.1 + rhs.1);
+    }
+}
+
+impl<'a> Sub<&'a Position> for Position {
+    type Output = Position;
+
+    fn sub(self, rhs: &'a Position) -> Self::Output {
+        return Position(self.0 - rhs.0, self.1 - rhs.1);
     }
 }
 
@@ -64,7 +73,7 @@ impl Default for Position {
 }
 
 impl Position {
-    fn follow(&mut self, other: &Self) -> bool {
+    fn follow(&mut self, other: Self, last_move: Option<Self>) -> Option<Position> {
         let diff = other - self;
 
         let operation = match diff {
@@ -72,24 +81,29 @@ impl Position {
             Position(-2, a) => Some(Position(-1, a)),
             Position(a, 2) => Some(Position(a, 1)),
             Position(a, -2) => Some(Position(a, -1)),
+            Position(1, 1) if last_move.is_some() => last_move.clone(),
+            Position(-1, -1) if last_move.is_some() => last_move.clone(),
             _ => None,
         };
 
         if let Some(op) = operation {
             *self += op;
-            return true;
         }
-        return false;
+        return operation;
     }
 
-    fn move_head(&mut self, dir: &str) -> () {
-        match dir {
-            "L" => *self += Position(-1, 0),
-            "R" => *self += Position(1, 0),
-            "D" => *self += Position(0, -1),
-            "U" => *self += Position(0, 1),
-            _ => (),
+    fn move_head(&mut self, dir: &str) -> Option<Position> {
+        let operation = match dir {
+            "L" => Some(Position(-1, 0)),
+            "R" => Some(Position(1, 0)),
+            "D" => Some(Position(0, -1)),
+            "U" => Some(Position(0, 1)),
+            _ => None,
         };
+        if let Some(op) = operation {
+            *self += op;
+        }
+        return operation;
     }
 }
 
@@ -100,13 +114,30 @@ pub fn solve(input: &'static str) -> Result<usize, Box<dyn Error>> {
         .map(|(dir, count)| (dir, count.parse::<usize>().expect("count as input")));
 
     let mut snake = [Position::default(); 9];
+    let mut pos: HashSet<Position> = HashSet::new();
+    pos.insert(Position::default());
+    // Uncomment this and remove Copy trait to see where copy happens
+    // let mut snake = [Position::default(), Position::default()];
     for cmd in cmds {
         for _ in 0..cmd.1 {
-            snake[0].move_head(cmd.0);
-            for (i, pos) in snake.iter_mut().skip(1).enumerate() {
-                pos.follow(&snake[i - 1]);
+            let mut operation = snake[0].move_head(cmd.0);
+            for i in 1..snake.len() - 1 {
+                operation = snake[i].follow(snake[i - 1].clone(), operation);
+            }
+            if snake[snake.len() - 1]
+                .follow(snake[&snake.len() - 2].clone(), operation)
+                .is_some()
+            {
+                pos.insert(snake[snake.len() - 1].clone());
+                println!(
+                    "move {}, head: {:?}, tail {:?}",
+                    cmd.0,
+                    snake[snake.len() - 2],
+                    snake[snake.len() - 1]
+                );
             }
         }
     }
-    Ok(0)
+    // dbg!(&pos);
+    Ok(pos.len())
 }
