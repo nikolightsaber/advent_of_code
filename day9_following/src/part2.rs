@@ -73,7 +73,7 @@ impl Default for Position {
 }
 
 impl Position {
-    fn follow(&mut self, other: Self, last_move: Option<Self>) -> Option<Position> {
+    fn follow(&mut self, other: Self) -> Option<Position> {
         let diff = other - self;
 
         let operation = match diff {
@@ -81,8 +81,6 @@ impl Position {
             Position(-2, a) => Some(Position(-1, a)),
             Position(a, 2) => Some(Position(a, 1)),
             Position(a, -2) => Some(Position(a, -1)),
-            Position(1, 1) if last_move.is_some() => last_move.clone(),
-            Position(-1, -1) if last_move.is_some() => last_move.clone(),
             _ => None,
         };
 
@@ -120,22 +118,23 @@ pub fn solve(input: &'static str) -> Result<usize, Box<dyn Error>> {
     // let mut snake = [Position::default(), Position::default()];
     for cmd in cmds {
         for _ in 0..cmd.1 {
-            let mut operation = snake[0].move_head(cmd.0);
+            snake[0].move_head(cmd.0);
             for i in 1..snake.len() - 1 {
-                operation = snake[i].follow(snake[i - 1].clone(), operation);
+                snake[i].follow(snake[i - 1].clone());
             }
             if snake[snake.len() - 1]
-                .follow(snake[&snake.len() - 2].clone(), operation)
+                .follow(snake[&snake.len() - 2].clone())
                 .is_some()
             {
                 pos.insert(snake[snake.len() - 1].clone());
-                println!(
-                    "move {}, head: {:?}, tail {:?}",
-                    cmd.0,
-                    snake[snake.len() - 2],
-                    snake[snake.len() - 1]
-                );
             }
+            println!("{:?}", snake);
+            println!(
+                "move {}, head: {:?}, tail {:?}",
+                cmd.0,
+                snake[snake.len() - 2],
+                snake[snake.len() - 1]
+            );
         }
     }
     // dbg!(&pos);
