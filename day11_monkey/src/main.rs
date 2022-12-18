@@ -1,3 +1,4 @@
+use core::fmt::Debug;
 use std::error::Error;
 use std::num::ParseIntError;
 use std::str::FromStr;
@@ -6,6 +7,53 @@ struct Monkey {
     items: Vec<usize>,
     operation: Box<dyn Fn(usize) -> usize>,
     test: Box<dyn Fn(usize) -> usize>,
+    activity: usize,
+}
+
+impl Debug for Monkey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let op_0 = (self.operation)(0);
+        let op_1 = (self.operation)(1);
+
+        let mut t: usize = 1;
+        let test_0 = (self.test)(t);
+        while (self.test)(t) == test_0 {
+            t += 1;
+        }
+        let test_1 = (self.test)(t);
+        write!(
+            f,
+            "Monkey ( items: {:?}, operaton: (0 -> {}, 1 -> {}), test: (div: {}, 0: {}, 1: {}), activity: {})",
+            self.items, op_0, op_1, t, test_0, test_1, self.activity
+        )
+    }
+}
+
+impl Monkey {
+    fn new(
+        items: Vec<usize>,
+        operation: Box<dyn Fn(usize) -> usize>,
+        test: Box<dyn Fn(usize) -> usize>,
+    ) -> Self {
+        Monkey {
+            items,
+            operation,
+            test,
+            activity: 0,
+        }
+    }
+
+    fn cycle(&mut self) -> Vec<usize> {
+        self.items
+            .iter_mut()
+            .map(|item| {
+                self.activity += 1;
+                *item = (self.operation)(*item);
+                *item /= 3;
+                (self.test)(*item)
+            })
+            .collect::<Vec<usize>>()
+    }
 }
 
 impl FromStr for Monkey {
@@ -95,15 +143,32 @@ impl FromStr for Monkey {
             }
         });
 
-        Ok(Monkey {
-            items,
-            operation,
-            test,
-        })
+        Ok(Monkey::new(items, operation, test))
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("Hello, world!");
+    let input = std::fs::read_to_string("inp_test.txt")?;
+
+    let mut monkeys = input
+        .split("\n\n")
+        .flat_map(str::parse::<Monkey>)
+        .collect::<Vec<Monkey>>();
+
+    for _ in 0..20 {
+        for i in 0..monkeys.len() {
+            let a = monkeys[i].cycle();
+            for new in a {
+                let item = monkeys[i].items.pop().unwrap();
+                monkeys[new].items.push(item);
+            }
+        }
+    }
+
+    dbg!(&monkeys);
+    monkeys.sort_by(|a, b| b.activity.cmp(&a.activity));
+
+    println!("ex 1: {}", monkeys[0].activity * monkeys[1].activity);
+
     Ok(())
 }
