@@ -43,13 +43,24 @@ impl Monkey {
         }
     }
 
-    fn cycle(&mut self) -> Vec<usize> {
+    fn cycle_with_divide(&mut self) -> Vec<usize> {
         self.items
             .iter_mut()
             .map(|item| {
                 self.activity += 1;
                 *item = (self.operation)(*item);
                 *item /= 3;
+                (self.test)(*item)
+            })
+            .collect::<Vec<usize>>()
+    }
+
+    fn cycle_without_divide(&mut self) -> Vec<usize> {
+        self.items
+            .iter_mut()
+            .map(|item| {
+                self.activity += 1;
+                *item = (self.operation)(*item);
                 (self.test)(*item)
             })
             .collect::<Vec<usize>>()
@@ -148,7 +159,7 @@ impl FromStr for Monkey {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let input = std::fs::read_to_string("inp_off.txt")?;
+    let input = std::fs::read_to_string("inp_test.txt")?;
 
     let mut monkeys = input
         .split("\n\n")
@@ -157,7 +168,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for _ in 0..20 {
         for i in 0..monkeys.len() {
-            for new in monkeys[i].cycle() {
+            for new in monkeys[i].cycle_with_divide() {
                 let item = monkeys[i].items.remove(0);
                 monkeys[new].items.push(item);
             }
@@ -167,6 +178,26 @@ fn main() -> Result<(), Box<dyn Error>> {
     monkeys.sort_by(|a, b| b.activity.cmp(&a.activity));
 
     println!("ex 1: {}", monkeys[0].activity * monkeys[1].activity);
+
+    // Clone seems very hard here
+    // TODO one day maybe if its easy
+    let mut monkeys = input
+        .split("\n\n")
+        .flat_map(str::parse::<Monkey>)
+        .collect::<Vec<Monkey>>();
+
+    for _ in 0..20 {
+        for i in 0..monkeys.len() {
+            for new in monkeys[i].cycle_without_divide() {
+                let item = monkeys[i].items.remove(0);
+                monkeys[new].items.push(item);
+            }
+        }
+    }
+
+    monkeys.sort_by(|a, b| b.activity.cmp(&a.activity));
+
+    println!("ex 2: {}", monkeys[0].activity * monkeys[1].activity);
 
     Ok(())
 }
