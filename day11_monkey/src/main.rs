@@ -148,7 +148,7 @@ impl FromStr for Monkey {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let input = std::fs::read_to_string("inp_test.txt")?;
+    let input = std::fs::read_to_string("inp_off.txt")?;
 
     let mut monkeys = input
         .split("\n\n")
@@ -157,15 +157,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for _ in 0..20 {
         for i in 0..monkeys.len() {
-            let a = monkeys[i].cycle();
-            for new in a {
-                let item = monkeys[i].items.pop().unwrap();
+            for new in monkeys[i].cycle() {
+                let item = monkeys[i].items.remove(0);
                 monkeys[new].items.push(item);
             }
         }
     }
 
-    dbg!(&monkeys);
     monkeys.sort_by(|a, b| b.activity.cmp(&a.activity));
 
     println!("ex 1: {}", monkeys[0].activity * monkeys[1].activity);
