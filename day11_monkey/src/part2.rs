@@ -1,12 +1,12 @@
 use core::fmt::Debug;
 use std::error::Error;
-use std::num::{ParseFloatError, ParseIntError};
+use std::num::ParseIntError;
 use std::str::FromStr;
 
 struct Monkey {
-    items: Vec<f64>,
-    operation: Box<dyn Fn(f64) -> f64>,
-    test: Box<dyn Fn(f64) -> usize>,
+    items: Vec<usize>,
+    operation: Box<dyn Fn(usize) -> usize>,
+    test: Box<dyn Fn(usize) -> usize>,
     activity: usize,
 }
 
@@ -15,7 +15,7 @@ impl Debug for Monkey {
         let op_0 = (self.operation)(0);
         let op_1 = (self.operation)(1);
 
-        let mut t: f64 = 1;
+        let mut t: usize = 1;
         let test_0 = (self.test)(t);
         while (self.test)(t) == test_0 {
             t += 1;
@@ -31,9 +31,9 @@ impl Debug for Monkey {
 
 impl Monkey {
     fn new(
-        items: Vec<f64>,
-        operation: Box<dyn Fn(f64) -> f64>,
-        test: Box<dyn Fn(f64) -> f64>,
+        items: Vec<usize>,
+        operation: Box<dyn Fn(usize) -> usize>,
+        test: Box<dyn Fn(usize) -> usize>,
     ) -> Self {
         Monkey {
             items,
@@ -43,15 +43,27 @@ impl Monkey {
         }
     }
 
-    fn cycle_without_divide(&mut self) -> Vec<f64> {
+    // Magic is common divisor of test
+    fn cycle_with_magic(&mut self, magic: usize) -> Vec<usize> {
         self.items
             .iter_mut()
             .map(|item| {
                 self.activity += 1;
                 *item = (self.operation)(*item);
+                *item %= magic;
                 (self.test)(*item)
             })
-            .collect::<Vec<f64>>()
+            .collect::<Vec<usize>>()
+    }
+
+    // A bit dumb but i did not feel like changing the datastructure
+    fn get_divisor(&self) -> usize {
+        let target = (self.test)(0);
+        let mut test = 1;
+        while target != (self.test)(test) {
+            test += 1;
+        }
+        test
     }
 }
 
@@ -67,9 +79,9 @@ impl FromStr for Monkey {
             .ok_or("Expected 5 lines")?
             .split_once(":")
             .ok_or("expected items right of a ':' ")?;
-        let items: Vec<f64> = items
+        let items: Vec<usize> = items
             .split(",")
-            .flat_map(|item| item.trim().parse::<f64>())
+            .flat_map(|item| item.trim().parse::<usize>())
             .collect();
 
         let (_, operation) = lines
@@ -81,11 +93,11 @@ impl FromStr for Monkey {
             .split_once("=")
             .ok_or("Expected opration after '=' sign")?;
 
-        let (operation, l, r): (Box<dyn Fn(f64, f64) -> f64>, &str, &str) =
+        let (operation, l, r): (Box<dyn Fn(usize, usize) -> usize>, &str, &str) =
             if let Some((l, r)) = operation.split_once("+") {
-                (Box::new(|a: f64, b: f64| a + b), l, r)
+                (Box::new(|a: usize, b: usize| a + b), l, r)
             } else if let Some((l, r)) = operation.split_once("*") {
-                (Box::new(|a: f64, b: f64| a * b), l, r)
+                (Box::new(|a: usize, b: usize| a * b), l, r)
             } else {
                 return Err(String::from("Expected + or * operator"));
             };
@@ -94,7 +106,7 @@ impl FromStr for Monkey {
             return Err(String::from("left hand side of operaton should be 'old'"));
         }
 
-        let operation: Box<dyn Fn(f64) -> f64> = match r.trim().parse::<f64>() {
+        let operation: Box<dyn Fn(usize) -> usize> = match r.trim().parse::<usize>() {
             Ok(val) => Box::new(move |old| operation(old, val)),
             Err(_) => Box::new(move |old| operation(old, old)),
         };
@@ -134,8 +146,8 @@ impl FromStr for Monkey {
             .parse::<usize>()
             .map_err(|e: ParseIntError| e.to_string())?;
 
-        let test: Box<dyn Fn(f64) -> usize> = Box::new(move |val| {
-            if (val as usize) % div_val == 0 {
+        let test: Box<dyn Fn(usize) -> usize> = Box::new(move |val| {
+            if val % div_val == 0 {
                 test_true
             } else {
                 test_false
@@ -146,17 +158,18 @@ impl FromStr for Monkey {
     }
 }
 
-pub fn solve() -> Result<f64, Box<dyn Error>> {
-    let input = std::fs::read_to_string("inp_test.txt")?;
+pub fn solve() -> Result<usize, Box<dyn Error>> {
+    let input = std::fs::read_to_string("inp_off.txt")?;
 
     let mut monkeys = input
         .split("\n\n")
         .flat_map(str::parse::<Monkey>)
         .collect::<Vec<Monkey>>();
 
-    for _ in 0..20 {
+    let magic: usize = monkeys.iter().map(|monkey| monkey.get_divisor()).product();
+    for _ in 0..10_000 {
         for i in 0..monkeys.len() {
-            for new in monkeys[i].cycle_without_divide() {
+            for new in monkeys[i].cycle_with_magic(magic) {
                 let item = monkeys[i].items.remove(0);
                 monkeys[new].items.push(item);
             }
