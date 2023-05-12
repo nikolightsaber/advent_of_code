@@ -1,6 +1,9 @@
 use std::error::Error;
 
 fn pretty_print(map: &Vec<Vec<u8>>, path: &Vec<(usize, usize)>) {
+    if path.len() == 0 {
+        return;
+    }
     for (i, l) in map.iter().enumerate() {
         for (j, c) in l.iter().enumerate() {
             if path.contains(&(i, j)) {
@@ -16,40 +19,47 @@ fn pretty_print(map: &Vec<Vec<u8>>, path: &Vec<(usize, usize)>) {
 
 fn search(
     map: &Vec<Vec<u8>>,
-    index: (usize, usize),
-    prev_height: u8,
-    mut path: &mut Vec<(usize, usize)>,
-) -> Option<u8> {
-    if path.contains(&index) {
+    last: Vec<(usize, usize)>,
+    mut rest: Vec<(usize, usize)>,
+) -> Option<usize> {
+    if last.len() == 0 {
         return None;
     }
-    //dbg!(index);
-    let height = map.get(index.0)?.get(index.1)?;
-    if prev_height != *height && prev_height + 1 != *height && prev_height - 1 != *height {
-        return None;
-    }
-    if *height == b'z' + 1 {
-        pretty_print(map, path);
-        return Some(0);
-    }
-    path.push(index);
-    [(1, 0), (0, 1), (-1, 0), (0, -1)]
-        .into_iter()
-        .flat_map(|(i, j): (isize, isize)| {
-            Some((
-                index.0.checked_add_signed(i)?,
-                index.1.checked_add_signed(j)?,
-            ))
+    let next = last
+        .iter()
+        .flat_map(|index| {
+            [(1, 0), (0, 1), (-1, 0), (0, -1)]
+                .into_iter()
+                .flat_map(|(i, j): (isize, isize)| {
+                    let ni = index.0.checked_add_signed(i)?;
+                    let nj = index.1.checked_add_signed(j)?;
+                    let height = *map.get(ni)?.get(nj)?;
+                    Some((ni, nj, height))
+                })
+                .filter(|(i, j, height)| {
+                    let prev = map[index.0][index.1];
+                    !last.contains(&(*i, *j)) && (prev + 1 >= *height) && !rest.contains(&(*i, *j))
+                })
         })
-        .flat_map(|i| search(map, i, *height, &mut path))
-        .min()
-        .map_or_else(
-            || {
-                path.pop();
-                None
-            },
-            |v| Some(v + 1),
-        )
+        .fold(Some(Vec::new()), |mut opt, n| {
+            if map[n.0][n.1] == b'z' + 1 {
+                return None;
+            }
+            if let Some(v) = opt.as_mut() {
+                let ind = (n.0, n.1);
+                if !v.contains(&ind) {
+                    v.push(ind);
+                }
+            }
+            return opt;
+        });
+
+    if let Some(wave) = next {
+        //pretty_print(map, &wave);
+        last.into_iter().for_each(|l| rest.push(l));
+        return search(map, wave, rest).map(|v| v + 1);
+    }
+    Some(1)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -75,9 +85,22 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
         .collect();
 
-    let mut v = Vec::<(usize, usize)>::new();
-    let a = search(&map, first, b'a', &mut v);
-    println!("{:?}", a);
+    let v = vec![first];
+    let ex1 = search(&map, v, Vec::new());
+    println!("{:?}", ex1);
+
+    let ex2 = map
+        .iter()
+        .enumerate()
+        .flat_map(|(i, v)| {
+            v.iter()
+                .enumerate()
+                .filter(|(_, h)| **h == b'a')
+                .flat_map(|(j, _)| search(&map, vec![(i, j)], Vec::new()))
+                .min()
+        })
+        .min();
+    println!("{:?}", ex2);
 
     Ok(())
 }
