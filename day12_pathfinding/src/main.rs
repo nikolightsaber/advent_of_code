@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{collections::HashSet, error::Error};
 
 fn pretty_print(map: &Vec<Vec<u8>>, path: &Vec<(usize, usize)>) {
     if path.len() == 0 {
@@ -20,7 +20,7 @@ fn pretty_print(map: &Vec<Vec<u8>>, path: &Vec<(usize, usize)>) {
 fn search(
     map: &Vec<Vec<u8>>,
     last: Vec<(usize, usize)>,
-    mut rest: Vec<(usize, usize)>,
+    mut rest: HashSet<(usize, usize)>,
 ) -> Option<usize> {
     if last.len() == 0 {
         return None;
@@ -56,7 +56,9 @@ fn search(
 
     if let Some(wave) = next {
         //pretty_print(map, &wave);
-        last.into_iter().for_each(|l| rest.push(l));
+        last.into_iter().for_each(|l| {
+            rest.insert(l);
+        });
         return search(map, wave, rest).map(|v| v + 1);
     }
     Some(1)
@@ -86,8 +88,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect();
 
     let v = vec![first];
-    let ex1 = search(&map, v, Vec::new());
-    println!("{:?}", ex1);
+    let ex1 = search(&map, v, HashSet::new());
+    println!("{:?}", ex1.unwrap());
 
     let ex2 = map
         .iter()
@@ -96,11 +98,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             v.iter()
                 .enumerate()
                 .filter(|(_, h)| **h == b'a')
-                .flat_map(|(j, _)| search(&map, vec![(i, j)], Vec::new()))
+                .flat_map(|(j, _)| search(&map, vec![(i, j)], HashSet::new()))
                 .min()
         })
         .min();
-    println!("{:?}", ex2);
+    println!("{:?}", ex2.unwrap());
 
     Ok(())
 }
