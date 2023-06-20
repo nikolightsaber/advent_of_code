@@ -1,4 +1,7 @@
-use std::{cmp::Ordering, error::Error};
+use std::cmp::Ordering;
+use std::error::Error;
+use std::iter::Peekable;
+use std::str::Chars;
 
 enum PacketUpdateError {
     IsEmpty,
@@ -18,8 +21,8 @@ impl PacketState {
         }
     }
 
-    fn update(&mut self, ch: Option<char>) -> Result<(), PacketUpdateError> {
-        match ch {
+    fn update(&mut self, ch: &mut Peekable<Chars>) -> Result<(), PacketUpdateError> {
+        match ch.next() {
             Some('[') => {
                 self.value = None;
                 self.dept += 1
@@ -28,7 +31,11 @@ impl PacketState {
                 self.value = None;
                 self.dept -= 1
             }
-            Some('1'..='9') => self.value = ch.unwrap().to_digit(10).map(|v| v as usize),
+            Some('1') => match ch.next_if_eq(&'0') {
+                Some(_) => self.value = Some(10),
+                None => self.value = Some(1),
+            },
+            Some(c @ '2'..='9') => self.value = c.to_digit(10).map(|v| v as usize),
             None => return Err(PacketUpdateError::IsEmpty),
             _ => self.value = None,
         }
@@ -57,95 +64,76 @@ impl PartialOrd for PacketState {
     }
 }
 
-fn update_left_and_right(
-    left_state: &mut PacketState,
-    right_state: &mut PacketState,
-    left_char: Option<char>,
-    right_char: Option<char>,
-) -> Result<(), PacketUpdateError> {
-    if let (Err(PacketUpdateError::IsEmpty), Err(PacketUpdateError::IsEmpty)) =
-        (left_state.update(left_char), right_state.update(right_char))
-    {
-        return Err(PacketUpdateError::IsEmpty);
-    }
-    Ok(())
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
     let input = std::fs::read_to_string("inp_off.txt")?;
 
-    let ex1: usize =
-        input
-            .split("\n\n")
-            .map(str::lines)
-            .flat_map(|mut pair| {
-                Some((
-                    pair.next()?.chars().peekable(),
-                    pair.next()?.chars().peekable(),
-                ))
-            })
-            .enumerate()
-            .map(|(i, (mut left, mut right))| {
-                let mut left_state = PacketState::new();
-                let mut right_state = PacketState::new();
-                loop {
-                    dbg!(i, &left_state, &right_state);
-                    match left_state.partial_cmp(&right_state) {
-                        Some(Ordering::Greater) => {
-                            return None;
+    let ex1: usize = input
+        .split("\n\n")
+        .map(str::lines)
+        .flat_map(|mut pair| {
+            Some((
+                pair.next()?.chars().peekable(),
+                pair.next()?.chars().peekable(),
+            ))
+        })
+        .enumerate()
+        .map(|(i, (mut left, mut right))| {
+            let mut left_state = PacketState::new();
+            let mut right_state = PacketState::new();
+            loop {
+                dbg!(i, &left_state, &right_state);
+                match left_state.partial_cmp(&right_state) {
+                    Some(Ordering::Greater) => {
+                        return None;
+                    }
+                    Some(Ordering::Equal) | Some(Ordering::Less) => {
+                        if let (Err(PacketUpdateError::IsEmpty), Err(PacketUpdateError::IsEmpty)) =
+                            (left_state.update(&mut left), right_state.update(&mut right))
+                        {
+                            break;
                         }
-                        Some(Ordering::Equal) | Some(Ordering::Less) => {
+                    }
+                    None => match (left_state.value, right_state.value) {
+                        (None, Some(_)) => {
+                            let _ = left_state.update(&mut left);
+                        }
+                        (Some(_), None) => {
+                            let _ = right_state.update(&mut right);
+                        }
+                        (None, None) => {
                             if let (
                                 Err(PacketUpdateError::IsEmpty),
                                 Err(PacketUpdateError::IsEmpty),
-                            ) = (
-                                left_state.update(left.next()),
-                                right_state.update(right.next()),
-                            ) {
+                            ) = (left_state.update(&mut left), right_state.update(&mut right))
+                            {
                                 break;
                             }
                         }
-                        None => match (left_state.value, right_state.value) {
-                            (None, Some(_)) => {
-                                let _ = left_state.update(left.next());
-                            }
-                            (Some(_), None) => {
-                                let _ = right_state.update(right.next());
-                            }
-                            (None, None) => {
-                                if let (
-                                    Err(PacketUpdateError::IsEmpty),
-                                    Err(PacketUpdateError::IsEmpty),
-                                ) = (
-                                    left_state.update(left.next()),
-                                    right_state.update(right.next()),
-                                ) {
-                                    break;
+                        (Some(l), Some(r)) if l <= r => {
+                            while left_state.dept != right_state.dept {
+                                if left_state > right_state {
+                                    let _ = left_state.update(&mut left);
+                                } else {
+                                    let _ = right_state.update(&mut right);
                                 }
                             }
-                            (Some(l), Some(r)) if l <= r => {
-                                while left_state.dept != right_state.dept {
-                                    let _ = left_state.update(left.next());
-                                }
-                                if let (
-                                    Err(PacketUpdateError::IsEmpty),
-                                    Err(PacketUpdateError::IsEmpty),
-                                ) = (
-                                    left_state.update(left.next()),
-                                    right_state.update(right.next()),
-                                ) {
-                                    break;
-                                }
+                            if let (
+                                Err(PacketUpdateError::IsEmpty),
+                                Err(PacketUpdateError::IsEmpty),
+                            ) = (left_state.update(&mut left), right_state.update(&mut right))
+                            {
+                                break;
                             }
-                            (Some(l), Some(r)) if l > r => return None,
-                            (Some(_), Some(_)) => unreachable!(),
-                        },
-                    }
+                        }
+                        (Some(l), Some(r)) if l > r => return None,
+                        (Some(_), Some(_)) => unreachable!(),
+                    },
                 }
-                Some(i + 1)
-            })
-            .flat_map(|out| dbg!(out))
-            .sum();
+            }
+            Some(i + 1)
+        })
+        .flat_map(|out| dbg!(out))
+        .sum();
     println!("ex1: {}", ex1);
     Ok(())
 }
