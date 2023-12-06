@@ -5,11 +5,22 @@ struct PartNumber {
     val: u32,
     x: usize,
 }
+impl PartNumber {
+    fn touches(&self, x: usize) -> bool {
+        let min = self.x.saturating_sub(1);
+        let max = self.x + self.val_size() + 1;
+        return min <= x && x <= max;
+    }
+
+    fn val_size(&self) -> usize {
+        return self.val.to_string().len();
+    }
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let input = include_str!("test_inp.txt");
+    let input = include_str!("off_inp.txt");
 
-    let parsed_input = input
+    let (mut part_nrs, symbols) = input
         .lines()
         .map(|l| {
             let mut part_numbers: Vec<PartNumber> = vec![];
@@ -34,7 +45,28 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             (part_numbers, symbols)
         })
-        .collect::<Vec<_>>();
-    println!("{:?}", parsed_input);
+        .fold((vec![], vec![]), |mut acc, (part_nrs, symbols)| {
+            acc.0.push(part_nrs);
+            acc.1.push(symbols);
+            acc
+        });
+
+    let mut out = 0;
+    for (i, symbols) in symbols.iter().enumerate() {
+        for symbol in symbols {
+            for y in i.saturating_sub(1)..=std::cmp::min(i + 1, part_nrs.len() - 1) {
+                part_nrs[y].retain(|partnr| {
+                    if partnr.touches(*symbol) {
+                        out += partnr.val;
+                        return false;
+                    }
+                    true
+                });
+            }
+        }
+    }
+
+    println!("{}", out);
+
     Ok(())
 }
